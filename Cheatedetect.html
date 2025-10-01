@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Anti-Cheat Demo — HackerRank-like Environment</title>
+<style>
+  :root{
+    --bg:#0f1724; --card:#0b1220; --accent:#06b6d4; --good:#10b981; --warn:#f59e0b; --bad:#ef4444;
+    --muted:#94a3b8; --glass: rgba(255,255,255,0.03);
+  }
+  *{box-sizing:border-box}
+  body{font-family:Inter,ui-sans-serif,system-ui,Helvetica,Arial;margin:0;background:linear-gradient(180deg,var(--bg),#071026);color:#e6eef6}
+  .wrap{max-width:1100px;margin:28px auto;padding:20px}
+  header{display:flex;align-items:center;gap:18px}
+  header h1{margin:0;font-size:18px}
+  .status {margin-left:auto;display:flex;gap:12px;align-items:center}
+  .badge{padding:6px 12px;border-radius:999px;font-weight:600;background:var(--glass);display:inline-flex;align-items:center;gap:8px}
+  .status-dot{width:10px;height:10px;border-radius:50%}
+  main{display:grid;grid-template-columns:1fr 380px;gap:18px;margin-top:18px}
+  .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,0.6)}
+  .editor{height:540px;display:flex;flex-direction:column}
+  .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+  .timer{font-weight:700;font-size:16px}
+  textarea#code{flex:1;width:100%;resize:none;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:#071223;color:#dff3fb;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;font-size:14px;line-height:1.45}
+  button{background:var(--accent);border:none;padding:8px 12px;border-radius:8px;color:#042;cursor:pointer;font-weight:700}
+  button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted);font-weight:600}
+  .panel{display:flex;flex-direction:column;gap:12px}
+  .stat-row{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;background:rgba(255,255,255,0.01)}
+  .log{height:280px;overflow:auto;padding:10px;border-radius:8px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02));font-size:13px}
+  .meter{height:18px;background:rgba(255,255,255,0.03);border-radius:999px;overflow:hidden}
+  .meter > i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--warn),var(--bad));transition:width 300ms ease}
+  footer{margin-top:14px;font-size:13px;color:var(--muted)}
+  .small{font-size:13px;color:var(--muted)}
+  .pill{padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.02);font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 24 24'%3E%3Cpath fill='%2306b6d4' d='M12 2L2 7v9c0 5 10 6 10 6s10-1 10-6V7L12 2z'/%3E%3C/path%3E%3C/svg%3E" alt="" />
+    <h1>CodeTest • Practice — Anti-Cheat Demo</h1>
+    <div class="status">
+      <div class="badge" id="statusBadge"><span class="status-dot" id="statusDot" style="background:var(--good)"></span><span id="statusText">Safe</span></div>
+      <div class="badge small pill" id="scoreBadge">Score: 0</div>
+    </div>
+  </header>
+
+  <main>
+    <section class="card editor" aria-labelledby="code-editor">
+      <div class="toolbar">
+        <div class="timer">Time left: <span id="timer">60:00</span></div>
+        <div style="flex:1"></div>
+        <button id="goFs">Enter Fullscreen</button>
+        <button id="restart" class="ghost">Restart</button>
+      </div>
+
+      <textarea id="code" aria-label="code editor">// Write your solution here
+function solution(input) {
+  // ...
+}</textarea>
+
+      <footer>
+        <div class="small">This editor is a demo. The anti-cheat status on the right aggregates client-side signals (visibility, copy/paste, context menu, devtools/resizes, focus switches).</div>
+      </footer>
+    </section>
+
+    <aside class="card panel" aria-labelledby="anticheat-panel">
+      <div>
+        <div class="stat-row"><strong>Anti-cheat suspicion</strong><span id="suspicionLabel" class="pill">Low</span></div>
+        <div style="margin-top:8px">
+          <div class="meter"><i id="meterFill"></i></div>
+        </div>
+        <div style="margin-top:8px" class="small">Score breakdown (higher = more suspicious)</div>
+      </div>
+
+      <div>
+        <div class="stat-row"><div>Visibility switches</div><div id="visCount">0</div></div>
+        <div class="stat-row"><div>Blur / Focus</div><div id="blurCount">0</div></div>
+        <div class="stat-row"><div>Copy/Paste attempts</div><div id="cpCount">0</div></div>
+        <div class="stat-row"><div>Context menu / selection</div><div id="ctxCount">0</div></div>
+        <div class="stat-row"><div>Devtools heuristics</div><div id="dtCount">0</div></div>
+      </div>
+
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <strong>Event log</strong>
+          <button id="clearLog" class="ghost">Clear</button>
+        </div>
+        <div class="log" id="log"></div>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:space-between;margin-top:8px">
+        <button id="simulateCheat" class="ghost">Simulate suspicious action</button>
+        <button id="export" class="ghost">Export report</button>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script>
+/*
+  Anti-cheat demo logic (client-only, demonstration only)
+  - Detects: visibilitychange, blur/focus, copy/paste, contextmenu/selection,
+             devtools heuristics (outer-inner), window resize as heuristic
+  - Aggregates a weighted suspicion score and updates UI
+  - Includes a "simulate" button to create suspicious events for demo
+*/
+
+(() => {
+  const state = {
+    score: 0,
+    counts: {visibility:0, blur:0, copyPaste:0, context:0, devtools:0},
+    events: []
+  };
+
+  const weights = {
+    visibility: 6,
+    blur: 5,
+    copyPaste: 8,
+    context: 4,
+    devtools: 12
+  };
+
+  const maxScore = 100;
+
+  const el = id => document.getElementById(id);
+  const logEl = el('log');
+  const meterFill = el('meterFill');
+  const statusText = el('statusText');
+  const statusDot = el('statusDot');
+  const scoreBadge = el('scoreBadge');
+  const suspicionLabel = el('suspicionLabel');
+
+  function pushEvent(message, level='info') {
+    const time = new Date().toLocaleTimeString();
+    const item = document.createElement('div');
+    item.innerHTML = '<strong>[' + time + ']</strong> ' + message;
+    logEl.prepend(item);
+    state.events.unshift({t:Date.now(), message, level});
+  }
+
+  function addScore(kind, incr = 1) {
+    const w = weights[kind] || 1;
+    state.score += w * incr;
+    if (state.score > maxScore) state.score = maxScore;
+    updateUI();
+  }
+
+  function updateUI() {
+    // meter width 0-100
+    const pct = Math.round((state.score / maxScore) * 100);
+    meterFill.style.width = pct + '%';
+    scoreBadge.textContent = 'Score: ' + state.score;
+
+    // status thresholds
+    if (state.score < 20) {
+      statusText.textContent = 'Safe';
+      statusDot.style.background = 'var(--good)';
+      suspicionLabel.textContent = 'Low';
+    } else if (state.score < 50) {
+      statusText.textContent = 'Warning';
+      statusDot.style.background = 'var(--warn)';
+      suspicionLabel.textContent = 'Medium';
+    } else {
+      statusText.textContent = 'Cheating Suspected';
+      statusDot.style.background = 'var(--bad)';
+      suspicionLabel.textContent = 'High';
+    }
+
+    // update count displays
+    el('visCount').textContent = state.counts.visibility;
+    el('blurCount').textContent = state.counts.blur;
+    el('cpCount').textContent = state.counts.copyPaste;
+    el('ctxCount').textContent = state.counts.context;
+    el('dtCount').textContent = state.counts.devtools;
+  }
+
+  // Visibility API
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') {
+      state.counts.visibility++;
+      addScore('visibility', 1);
+      pushEvent('Page hidden or switched away (visibilitychange).');
+    } else {
+      pushEvent('Page returned to visible (visibilitychange).');
+    }
+  });
+
+  // Focus / blur
+  window.addEventListener('blur', () => {
+    state.counts.blur++;
+    addScore('blur', 1);
+    pushEvent('Window lost focus (blur).');
+  });
+  window.addEventListener('focus', () => {
+    pushEvent('Window regained focus (focus).');
+  });
+
+  // Copy / paste / cut attempts
+  ['copy','paste','cut'].forEach(evt => {
+    document.addEventListener(evt, (e) => {
+      state.counts.copyPaste++;
+      addScore('copyPaste', 1);
+      pushEvent('User triggered ' + evt + ' event.');
+    });
+  });
+
+  // Context menu / selection
+  document.addEventListener('contextmenu', (e) => {
+    state.counts.context++;
+    addScore('context', 1);
+    pushEvent('Context menu opened (right click).');
+  });
+
+  document.addEventListener('selectionchange', () => {
+    const sel = document.getSelection();
+    if (sel && sel.toString().length > 30) { // long selection in editor -> suspicious
+      state.counts.context++;
+      addScore('context', 0.5);
+      pushEvent('Large text selection detected.');
+    }
+  });
+
+  // Basic devtools heuristics: detect large outer-inner differences or frequent resize
+  let lastDevtoolsCheck = 0;
+  function devtoolsCheck() {
+    // heuristic: large difference may indicate devtools docked
+    const widthDiff = window.outerWidth - window.innerWidth;
+    const heightDiff = window.outerHeight - window.innerHeight;
+    const suspicious = (widthDiff > 160) || (heightDiff > 160);
+
+    const now = Date.now();
+    if (suspicious && now - lastDevtoolsCheck > 2000) {
+      lastDevtoolsCheck = now;
+      state.counts.devtools++;
+      addScore('devtools', 1);
+      pushEvent('Devtools / large-dock heuristic triggered (outer-inner diffs). ' +
+                '(wDiff=' + widthDiff + ', hDiff=' + heightDiff + ')');
+    }
+  }
+
+  // Frequent resize (user resized to inspect UI)
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    devtoolsCheck();
+    // mark as suspicious if many resizes in short time
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      // nothing more
+    }, 300);
+  });
+
+  // "Devtools" timing heuristic (non-invasive)
+  // This doesn't use 'debugger' to avoid hanging; instead we use a quick timing pattern.
+  function timingDevtoolsProbe() {
+    const t0 = performance.now();
+    // loop for a tiny bit artificially
+    for (let i=0;i<100000;i++) { Math.sqrt(i); }
+    const t1 = performance.now();
+    const elapsed = t1 - t0;
+    // if elapsed is unusually high (e.g., heavy throttling or paused execution), flag
+    if (elapsed > 30) {
+      state.counts.devtools++;
+      addScore('devtools', 0.6);
+      pushEvent('Timing probe anomaly (possible paused script / devtools). elapsed=' + Math.round(elapsed) + 'ms');
+    }
+  }
+
+  // Periodic probes
+  setInterval(() => {
+    devtoolsCheck();
+    timingDevtoolsProbe();
+  }, 3000);
+
+  // Prevent accidental pastes or warn user (demo): show a toast in console
+  // NOTE: we don't block paste events outright (production anti-cheat may)
+  el('code').addEventListener('paste', (e) => {
+    // small UX helper: do nothing special — event logged above
+    // Could optionally sanitize or warn the user
+  });
+
+  // Fullscreen helper (request)
+  document.getElementById('goFs').addEventListener('click', async () => {
+    try {
+      await document.documentElement.requestFullscreen();
+      pushEvent('Entered fullscreen.');
+    } catch (err) {
+      pushEvent('Fullscreen request failed: ' + err.message);
+    }
+  });
+
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement) {
+      // Exiting fullscreen might be suspicious mid-test
+      state.counts.visibility++;
+      addScore('visibility', 1);
+      pushEvent('Exited fullscreen (fullscreenchange).');
+    } else {
+      pushEvent('Fullscreen active.');
+    }
+  });
+
+  // Simulate a suspicious action button for demo/testing
+  el('simulateCheat').addEventListener('click', () => {
+    // create multiple events: blur, copy, contextmenu, devtools-like resize
+    window.dispatchEvent(new Event('blur'));
+    document.dispatchEvent(new Event('copy'));
+    document.dispatchEvent(new Event('contextmenu'));
+    // artificially bump devtools counter
+    state.counts.devtools++;
+    addScore('devtools', 2);
+    pushEvent('Simulated suspicious action sequence (demo).');
+  });
+
+  // Restart / reset
+  el('restart').addEventListener('click', () => {
+    state.score = 0;
+    state.counts = {visibility:0, blur:0, copyPaste:0, context:0, devtools:0};
+    state.events = [];
+    logEl.innerHTML = '';
+    pushEvent('Session restarted by user.');
+    updateUI();
+  });
+
+  el('clearLog').addEventListener('click', () => {
+    logEl.innerHTML = '';
+  });
+
+  // Export a simple report (text)
+  el('export').addEventListener('click', () => {
+    const report = {
+      score: state.score,
+      counts: state.counts,
+      events: state.events.slice(0,200)
+    };
+    const blob = new Blob([JSON.stringify(report, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'anticheat-report.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    pushEvent('Exported report (local JSON).');
+  });
+
+  // Simple timer: 60 minutes default
+  let remaining = 60 * 60; // seconds
+  el('timer').textContent = formatTime(remaining);
+  setInterval(() => {
+    if (remaining > 0) remaining--;
+    el('timer').textContent = formatTime(remaining);
+  }, 1000);
+
+  function formatTime(sec) {
+    const mm = Math.floor(sec / 60).toString().padStart(2,'0');
+    const ss = (sec % 60).toString().padStart(2,'0');
+    return mm + ':' + ss;
+  }
+
+  // initial UI
+  pushEvent('Anti-cheat demo initialized. This is a local simulation.');
+  updateUI();
+
+  // keyboard shortcuts detection (copy/paste via shortcuts)
+  document.addEventListener('keydown', (e) => {
+    const isCopy = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c';
+    const isPaste = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v';
+    const isCut = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x';
+    // Detect common "open devtools" shortcuts (Ctrl+Shift+I / F12)
+    const devtoolsShortcut = (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i') || e.key === 'F12';
+    if (isCopy || isPaste || isCut) {
+      state.counts.copyPaste++;
+      addScore('copyPaste', 1);
+      pushEvent('Keyboard shortcut detected: ' + (isCopy ? 'copy' : isPaste ? 'paste' : 'cut'));
+    }
+    if (devtoolsShortcut) {
+      state.counts.devtools++;
+      addScore('devtools', 2);
+      pushEvent('Devtools shortcut pressed (Ctrl+Shift+I / F12).');
+    }
+  });
+
+})();
+</script>
+</body>
+</html>
